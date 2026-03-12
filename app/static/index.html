@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signal Foundry Workstation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- ── 固定顶栏 ── -->
+  <nav class="topbar">
+    <div class="topbar-brand">
+      <span class="brand-mark">◈</span>
+      <span class="brand-name">Signal Foundry</span>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-status-group">
+        <span class="topbar-chip" id="runtimeStatusChip">
+          <span class="chip-dot"></span>检查中
+        </span>
+        <span class="topbar-chip dim" id="runtimeLibraryText">0 datasets · 0 models</span>
+      </div>
+      <button class="icon-btn" id="settingsTrigger" type="button" title="工作站设置">⚙</button>
+    </div>
+  </nav>
+
+  <!-- Pipeline Navigation -->
+  <nav class="pipeline-nav">
+    <div class="pipeline-cards">
+      <button class="pipeline-card is-active" data-tab="datasets" type="button">
+        <div class="pipeline-card-step" id="pipelineStepDataset">01</div>
+        <div class="pipeline-card-info">
+          <div class="pipeline-card-title">数据集</div>
+          <div class="pipeline-card-status" id="pipelineStatusDataset">准备数据</div>
+        </div>
+      </button>
+      <span class="pipeline-arrow">&#10148;</span>
+      <button class="pipeline-card" data-tab="training" type="button">
+        <div class="pipeline-card-step" id="pipelineStepTraining">02</div>
+        <div class="pipeline-card-info">
+          <div class="pipeline-card-title">训练</div>
+          <div class="pipeline-card-status" id="pipelineStatusTraining">配置训练</div>
+        </div>
+      </button>
+      <span class="pipeline-arrow">&#10148;</span>
+      <button class="pipeline-card" data-tab="inference" type="button">
+        <div class="pipeline-card-step" id="pipelineStepInference">03</div>
+        <div class="pipeline-card-info">
+          <div class="pipeline-card-title">推理</div>
+          <div class="pipeline-card-status" id="pipelineStatusInference">生成结果</div>
+        </div>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ── 设置抽屉遮罩 ── -->
+  <div class="settings-overlay" id="settingsOverlay"></div>
+
+  <!-- ── 设置抽屉 ── -->
+  <aside class="settings-drawer" id="settingsDrawer">
+    <div class="drawer-head">
+      <div>
+        <p class="eyebrow">Settings</p>
+        <h3>工作站设置</h3>
+      </div>
+      <button class="icon-btn" id="settingsCloseBtn" type="button">✕</button>
+    </div>
+
+    <div class="drawer-status">
+      <div class="status-row">
+        <span class="fact-label">GPU</span>
+        <strong id="runtimeGpuText">--</strong>
+      </div>
+      <div class="status-row">
+        <span class="fact-label">CUDA</span>
+        <strong id="runtimeCudaText">--</strong>
+      </div>
+      <div class="status-row">
+        <span class="fact-label">状态</span>
+        <span id="runtimeCompatibilityText" class="status-note">等待检测</span>
+      </div>
+      <div class="status-row">
+        <span class="fact-label">数据根目录</span>
+        <span id="dataRootText" class="status-note">--</span>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <label class="field">
+        <span>数据根目录</span>
+        <input id="settingsDataRootInput" type="text" placeholder="workspace_data">
+      </label>
+      <label class="field">
+        <span>默认 F0 Predictor</span>
+        <select id="settingsDefaultF0Select"></select>
+      </label>
+      <label class="field">
+        <span>默认训练步数</span>
+        <input id="settingsDefaultStepsInput" type="number" min="1" step="1">
+      </label>
+      <label class="field">
+        <span>Checkpoint 保存间隔（步）</span>
+        <input id="settingsCheckpointIntervalInput" type="number" min="1" step="1">
+      </label>
+      <label class="field">
+        <span>自动保留最近 N 个 checkpoint</span>
+        <input id="settingsCheckpointKeepInput" type="number" min="1" step="1">
+      </label>
+    </div>
+
+    <div class="drawer-footer">
+      <button class="primary-button" id="saveSettingsButton" type="button">保存设置</button>
+      <button class="ghost-button" id="refreshAllButton" type="button">刷新总览</button>
+      <span class="hint-text" id="settingsHintText">改动会同步写入本地配置。</span>
+    </div>
+
+    <!-- 推荐配置摘要 -->
+    <div class="drawer-defaults">
+      <p class="eyebrow">当前默认值</p>
+      <div class="fact-grid">
+        <div><span class="fact-label">默认 F0</span><strong id="defaultF0Text">rmvpe</strong></div>
+        <div><span class="fact-label">Checkpoint</span><strong id="defaultCheckpointText">--</strong></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── 主工作区 ── -->
+  <main class="workstation">
+
+    <!-- ① 数据集 Tab -->
+    <div class="tab-panel is-active" data-panel="datasets">
+      <div class="panel-columns">
+
+        <!-- 左侧：数据集列表 + 创建 -->
+        <div class="panel-rail">
+          <div class="rail-head">
+            <div>
+              <p class="eyebrow">Dataset Library</p>
+              <h2>数据集库 <span class="count-badge" id="datasetCountChip">0</span></h2>
+            </div>
+          </div>
+
+          <div class="create-form">
+            <label class="field">
+              <span>Speaker 名称 <em class="required">*</em></span>
+              <input id="datasetSpeakerInput" type="text" placeholder="例如 ivan">
+            </label>
+            <label class="field">
+              <span>数据集名称</span>
+              <input id="datasetNameInput" type="text" placeholder="例如 ivan_clean_set">
+            </label>
+            <label class="field">
+              <span>备注</span>
+              <input id="datasetDescriptionInput" type="text" placeholder="例如 2026-03 旁白原始录音">
+            </label>
+            <button class="primary-button full-width" id="createDatasetButton" type="button">+ 创建数据集</button>
+          </div>
+
+          <div class="dataset-grid" id="datasetCards">
+            <div class="empty-state">
+              <span class="empty-icon">◉</span>
+              <p class="empty-title">还没有数据集</p>
+              <p class="hint-text">填写上方表单，创建第一个数据集。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧：数据集详情 -->
+        <div class="panel-main" id="datasetDetailArea">
+          <div class="detail-placeholder">
+            <span class="empty-icon">←</span>
+            <p class="empty-title">选择一个数据集</p>
+            <p class="hint-text">从左侧列表选择，或新建一个数据集开始工作。</p>
+          </div>
+          <!-- 数据集详情（数据集被选中后显示） -->
+          <div class="dataset-detail hidden" id="datasetDetailContent">
+            <div class="detail-header">
+              <div>
+                <p class="eyebrow">Dataset Detail</p>
+                <h2 id="selectedDatasetTitle">--</h2>
+              </div>
+              <span class="panel-kicker" id="selectedDatasetMeta">--</span>
+            </div>
+
+            <!-- 上传区 -->
+            <div class="upload-console">
+              <label class="upload-drop" for="datasetUploadInput">
+                <input id="datasetUploadInput" type="file" accept=".wav,audio/wav" multiple>
+                <span class="upload-icon">↑</span>
+                <span class="upload-title">拖拽或点击上传原始训练音频</span>
+                <span class="upload-subtitle">支持长录音，上传后固定保存，再自动分段生成候选片段。</span>
+              </label>
+              <div class="actions compact-actions">
+                <label class="checkline">
+                  <input id="datasetAutoSegmentCheckbox" type="checkbox" checked>
+                  <span>上传后立即自动分段</span>
+                </label>
+                <button class="primary-button" id="uploadDatasetButton" type="button">上传到数据集</button>
+                <button class="ghost-button" id="rerunSegmentButton" type="button">重新分段</button>
+              </div>
+              <p class="hint-text" id="datasetUploadHintText"></p>
+            </div>
+
+            <div class="dataset-feature-divider">
+              <span>素材音频提取</span>
+            </div>
+
+            <article class="detail-card dataset-extract-card">
+              <div class="section-head compact">
+                <div>
+                  <p class="eyebrow">Material Extract</p>
+                  <h3>从录屏或原始素材提取可训练音频</h3>
+                </div>
+                <span class="panel-kicker" id="dsExtractStatusChip">等待素材</span>
+              </div>
+
+              <div class="upload-console">
+                <label class="upload-drop" for="dsExtractFileInput">
+                  <input id="dsExtractFileInput" type="file" accept=".wav,.mp3,.mp4,.mkv,.mov,.avi,audio/*,video/*">
+                  <span class="upload-icon">✦</span>
+                  <span class="upload-title">拖拽或点击上传录屏、视频或未处理音频</span>
+                  <span class="upload-subtitle">自动提取音轨并做人声分离，完成后可试听并一键加入当前数据集。</span>
+                </label>
+                <p class="hint-text" id="dsExtractAcceptedText">支持 WAV / MP3 / MP4 / MKV / MOV / AVI</p>
+                <p class="hint-text" id="dsExtractFileNameText">尚未选择素材</p>
+              </div>
+
+              <div class="field-section">
+                <p class="field-section-label">提取引擎</p>
+                <div class="predictor-cards" id="dsExtractEngineCards"></div>
+                <div class="predictor-note" id="dsExtractEngineNote"></div>
+              </div>
+
+              <div class="actions compact-actions">
+                <label class="checkline">
+                  <input id="dsExtractAutoSegmentCheckbox" type="checkbox" checked>
+                  <span>添加到数据集后立即自动分段</span>
+                </label>
+                <button class="primary-button" id="dsExtractStartButton" type="button">开始提取</button>
+              </div>
+
+              <p class="hint-text" id="dsExtractHintText">支持录屏视频或原始音频，提取完成后可一键加入当前数据集。</p>
+
+              <div class="progress-shell">
+                <div class="progress-track">
+                  <div class="progress-bar" id="dsExtractProgressBar"></div>
+                </div>
+                <div class="progress-meta">
+                  <span id="dsExtractProgressText">0%</span>
+                  <span id="dsExtractStageText">等待选择素材</span>
+                </div>
+              </div>
+
+              <pre class="log-console preprocess-console" id="dsExtractLogConsole">等待选择素材…</pre>
+
+              <div class="prep-compare-card hidden" id="dsExtractCompareCard">
+                <div class="actions compact-actions">
+                  <span class="panel-kicker compare-selection-chip" id="dsExtractSelectionChip">未确认</span>
+                  <button class="ghost-button variant-action" id="dsExtractUseOriginalButton" type="button">选择原始音轨</button>
+                  <button class="ghost-button variant-action" id="dsExtractUseVocalsButton" type="button">选择提取人声</button>
+                  <button class="primary-button" id="dsExtractConfirmButton" type="button">添加到数据集</button>
+                </div>
+
+                <span class="preprocess-warning hidden" id="dsExtractWarningText"></span>
+
+                <div class="compare-grid">
+                  <article class="compare-player-card detail-card is-selected" id="dsExtractOriginalCard">
+                    <div class="section-head compact">
+                      <div>
+                        <p class="eyebrow">Original</p>
+                        <h3>原始音轨</h3>
+                      </div>
+                      <span class="compare-player-meta" id="dsExtractOriginalMeta">等待结果</span>
+                    </div>
+                    <audio class="audio-player" id="dsExtractOriginalPlayer" controls preload="metadata"></audio>
+                  </article>
+
+                  <article class="compare-player-card detail-card is-recommended" id="dsExtractVocalsCard">
+                    <div class="section-head compact">
+                      <div>
+                        <p class="eyebrow">Vocals</p>
+                        <h3>提取人声</h3>
+                      </div>
+                      <span class="compare-player-meta" id="dsExtractVocalsMeta">推荐：含伴奏时优先试听</span>
+                    </div>
+                    <audio class="audio-player" id="dsExtractVocalsPlayer" controls preload="metadata"></audio>
+                  </article>
+                </div>
+              </div>
+            </article>
+
+            <!-- 文件 + 片段 并列 -->
+            <div class="detail-columns">
+              <article class="detail-card">
+                <div class="section-head compact">
+                  <div>
+                    <p class="eyebrow">Raw Files</p>
+                    <h3>原始音频</h3>
+                  </div>
+                  <span class="panel-kicker" id="datasetFileCountText">0 files</span>
+                </div>
+                <div class="file-list" id="datasetFilesList">
+                  <p class="hint-text">还没有音频文件。</p>
+                </div>
+              </article>
+
+              <article class="detail-card">
+                <div class="section-head compact">
+                  <div>
+                    <p class="eyebrow">Segments</p>
+                    <h3>候选片段审核</h3>
+                  </div>
+                  <span class="panel-kicker" id="datasetSegmentStatsText">0 / 0</span>
+                </div>
+                <div class="segment-list" id="datasetSegmentsList">
+                  <p class="hint-text">上传音频并自动分段后，在这里审核候选片段。</p>
+                </div>
+              </article>
+            </div>
+
+            <!-- 版本快照 -->
+            <article class="detail-card versions-card">
+              <div class="section-head compact">
+                <div>
+                  <p class="eyebrow">Dataset Versions</p>
+                  <h3>版本快照</h3>
+                </div>
+                <div class="actions compact-actions">
+                  <input id="datasetVersionLabelInput" class="mini-input" type="text" placeholder="版本标签，例如 v2_clean">
+                  <button class="primary-button" id="createDatasetVersionButton" type="button">固化为版本 →</button>
+                </div>
+              </div>
+              <div class="version-list" id="datasetVersionsList">
+                <p class="hint-text">审核片段后，固化为版本，才能用于训练。</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② 训练 Tab -->
+    <div class="tab-panel" data-panel="training">
+      <div class="panel-columns">
+
+        <!-- 左侧：模型版本树 -->
+        <div class="panel-rail">
+          <div class="rail-head">
+            <div>
+              <p class="eyebrow">Model Library</p>
+              <h2>模型库 <span class="count-badge" id="modelCountChip">0</span></h2>
+            </div>
+          </div>
+          <div class="model-list" id="modelCards">
+            <div class="empty-state">
+              <span class="empty-icon">⬡</span>
+              <p class="empty-title">还没有模型</p>
+              <p class="hint-text">训练完成后，模型版本会出现在这里。</p>
+            </div>
+          </div>
+
+          <!-- 模型版本详情 -->
+          <div class="model-version-detail" id="modelVersionDetail" style="display:none">
+            <div class="section-head compact">
+              <div>
+                <p class="eyebrow">Model Versions</p>
+                <h3 id="selectedModelTitle">--</h3>
+              </div>
+              <span class="panel-kicker" id="selectedModelMeta">--</span>
+            </div>
+            <div class="version-list" id="modelVersionsList"></div>
+          </div>
+        </div>
+
+        <!-- 右侧：训练表单 + 监控 -->
+        <div class="panel-main">
+
+          <!-- 训练表单 -->
+          <section class="panel training-form-panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Training Console</p>
+                <h2>配置训练</h2>
+              </div>
+              <span class="panel-kicker" id="trainingTaskStatusText">idle</span>
+            </div>
+
+            <div class="training-composer-shell">
+              <div class="training-form-grid training-default-grid">
+                <label class="field">
+                  <span>数据集版本 <em class="required">*</em></span>
+                  <select id="trainingDatasetVersionSelect"></select>
+                </label>
+                <label class="field">
+                  <span>模型名称 <em class="required">*</em></span>
+                  <input id="trainingModelNameInput" type="text" placeholder="例如 ivan_stage_a">
+                </label>
+                <label class="field">
+                  <span>训练模式</span>
+                  <select id="trainingModeSelect">
+                    <option value="new">完全重训（从底模开始）</option>
+                    <option value="resume">继续训练（从 checkpoint 续跑）</option>
+                    <option value="diffusion_only">仅训练扩散</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>设备</span>
+                  <select id="trainingDeviceSelect"></select>
+                </label>
+                <label class="field">
+                  <span>训练步数</span>
+                  <input id="trainingStepsInput" type="number" min="1" step="1">
+                </label>
+                <label class="field">
+                  <span>Checkpoint 保存间隔</span>
+                  <input id="trainingCheckpointIntervalInput" type="number" min="1" step="1">
+                </label>
+                <label class="field">
+                  <span>自动保留最近 N 个</span>
+                  <input id="trainingCheckpointKeepInput" type="number" min="1" step="1">
+                </label>
+              </div>
+
+              <div class="training-target-banner">
+                <div>
+                  <p class="eyebrow">Current Target</p>
+                  <h3 id="trainingTargetTitle">本次训练目标</h3>
+                </div>
+                <div class="training-target-facts">
+                  <div>
+                    <span class="fact-label">当前模式</span>
+                    <strong id="trainingTargetModeText">完全重训</strong>
+                  </div>
+                  <div>
+                    <span class="fact-label">目标版本</span>
+                    <strong id="trainingTargetVersionText">新版本</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="resume-fields hidden" id="resumeFields">
+                <div class="resume-fields-inner">
+                  <label class="field">
+                    <span id="trainingResumeVersionLabel">来源版本</span>
+                    <select id="trainingResumeVersionSelect"></select>
+                  </label>
+                  <label class="field" id="trainingResumeCheckpointField">
+                    <span>从 Checkpoint</span>
+                    <select id="trainingResumeCheckpointSelect"></select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="training-history-note">
+                <p class="hint-text" id="trainingHistoryHintText">左侧模型库是历史结果，右侧是本次训练编辑区。点击左侧版本只会预填右侧，不会即时改写历史。</p>
+              </div>
+
+              <div class="training-preset-section" id="trainingPresetSection">
+                <div class="section-head compact">
+                  <div>
+                    <p class="eyebrow">Preset Packs</p>
+                    <h3>选择训练配置</h3>
+                  </div>
+                  <span class="panel-kicker muted-kicker" id="trainingPresetContextChip">套餐决定架构</span>
+                </div>
+                <div class="training-preset-grid" id="trainingPresetCards"></div>
+                <div class="training-preset-foot">
+                  <span class="training-derived-line" id="trainingPresetDerivedText">ssl_dim / gin_channels / filter_channels 由套餐自动设定</span>
+                  <span class="hint-text" id="trainingPresetSummaryText">用户先选套餐，再决定是否展开高级区调运行参数。</span>
+                </div>
+              </div>
+
+              <div class="training-architecture-summary hidden" id="trainingArchitectureReadonly">
+                <div class="section-head compact">
+                  <div>
+                    <p class="eyebrow">Original Config</p>
+                    <h3>原版本配置</h3>
+                  </div>
+                  <span class="panel-kicker muted-kicker" id="trainingReadonlySourceChip">原版本配置</span>
+                </div>
+                <div class="training-architecture-grid">
+                  <div><span class="fact-label">Preset</span><strong id="trainingReadonlyPresetText">--</strong></div>
+                  <div><span class="fact-label">Speech Encoder</span><strong id="trainingReadonlyEncoderText">--</strong></div>
+                  <div><span class="fact-label">Tiny</span><strong id="trainingReadonlyTinyText">--</strong></div>
+                  <div><span class="fact-label">ssl_dim</span><strong id="trainingReadonlySslText">--</strong></div>
+                  <div><span class="fact-label">gin_channels</span><strong id="trainingReadonlyGinText">--</strong></div>
+                  <div><span class="fact-label">filter_channels</span><strong id="trainingReadonlyFilterText">--</strong></div>
+                </div>
+                <p class="hint-text" id="trainingReadonlySummaryText">这些架构参数继承自原版本配置，如需更换，请改用完全重训。</p>
+              </div>
+
+              <div class="field-section">
+                <p class="field-section-label">F0 音调提取算法</p>
+                <div class="predictor-cards" id="trainingPredictorCards"></div>
+                <div class="predictor-note" id="trainingPredictorNote"></div>
+              </div>
+
+              <details class="advanced-params">
+                <summary class="advanced-toggle">展开高级参数 <span class="toggle-hint">（运行参数 / 扩散训练）</span></summary>
+                <div class="advanced-stack">
+                  <div class="advanced-subsection">
+                    <div class="advanced-subhead">
+                      <p class="eyebrow">Main Runtime</p>
+                      <h3>主模型训练</h3>
+                    </div>
+                    <div class="training-form-grid mt-12">
+                      <label class="field">
+                        <span>Batch Size</span>
+                        <input id="trainingMainBatchSizeInput" type="number" min="1" step="1">
+                      </label>
+                      <label class="field">
+                        <span>训练精度</span>
+                        <select id="trainingMainPrecisionSelect"></select>
+                      </label>
+                      <label class="field">
+                        <span>Learning Rate</span>
+                        <input id="trainingLearningRateInput" type="number" min="0" step="0.00001">
+                      </label>
+                      <label class="field">
+                        <span>Log Interval</span>
+                        <input id="trainingLogIntervalInput" type="number" min="1" step="1">
+                      </label>
+                    </div>
+                    <div class="advanced-checkline-grid">
+                      <label class="advanced-checkline">
+                        <input id="trainingMainAllInMemCheckbox" type="checkbox">
+                        <span>all_in_mem：更影响内存 / IO，不是主要 VRAM 开关</span>
+                      </label>
+                      <label class="advanced-checkline">
+                        <input id="trainingUseTinyCheckbox" type="checkbox">
+                        <span id="trainingUseTinyHintText">use_tiny：仅在当前套餐支持 tiny 底模时可切</span>
+                      </label>
+                    </div>
+                    <p class="hint-text" id="trainingMainRuntimeHintText">Batch Size 与训练精度最影响显存；不支持的精度会在当前设备上被禁用。</p>
+                  </div>
+
+                  <div class="advanced-subsection diffusion-subsection">
+                    <div class="advanced-subhead">
+                      <p class="eyebrow">Diffusion Stage</p>
+                      <h3>扩散训练</h3>
+                    </div>
+                    <div class="training-form-grid mt-12">
+                      <label class="field">
+                        <span>扩散训练方式</span>
+                        <select id="trainingDiffusionModeSelect">
+                          <option value="disabled">不启用</option>
+                          <option value="chain">本次一起训练</option>
+                          <option value="deferred">稍后单独训练</option>
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span>Diffusion Batch Size</span>
+                        <input id="trainingDiffBatchSizeInput" type="number" min="1" step="1">
+                      </label>
+                      <label class="field">
+                        <span>Diffusion AMP Dtype</span>
+                        <select id="trainingDiffAmpDtypeSelect">
+                          <option value="fp32">fp32</option>
+                          <option value="fp16">fp16</option>
+                          <option value="bf16">bf16</option>
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span>Cache Device</span>
+                        <select id="trainingDiffCacheDeviceSelect">
+                          <option value="cpu">CPU</option>
+                          <option value="cuda">CUDA</option>
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span>Diffusion Num Workers</span>
+                        <input id="trainingDiffNumWorkersInput" type="number" min="0" step="1">
+                      </label>
+                    </div>
+                    <div class="advanced-checkline-grid">
+                      <label class="advanced-checkline">
+                        <input id="trainingDiffCacheAllDataCheckbox" type="checkbox">
+                        <span>cache_all_data：尽量把数据常驻缓存，能更快但占用更高</span>
+                      </label>
+                    </div>
+                    <p class="hint-text" id="trainingDiffusionHintText">扩散训练更慢、推理更慢、资源占用更高；默认关闭，确认主模型路线后再开启更稳。</p>
+                  </div>
+                </div>
+              </details>
+            </div>
+
+            <div class="actions">
+              <button class="primary-button large-btn" id="startTrainingButton" type="button">开始训练</button>
+              <span class="hint-text" id="trainingHintText">训练基于选定的数据集版本快照，原始数据集可继续编辑。</span>
+            </div>
+          </section>
+
+          <!-- 训练监控 -->
+          <section class="panel training-monitor-panel">
+            <div class="section-head compact">
+              <p class="eyebrow">Training Monitor</p>
+              <h3>训练进度</h3>
+            </div>
+
+            <div class="progress-shell">
+              <div class="progress-track">
+                <div class="progress-bar" id="trainingProgressBar"></div>
+              </div>
+              <div class="progress-meta">
+                <span id="trainingProgressText">0%</span>
+                <span id="trainingStageText">等待训练开始</span>
+              </div>
+            </div>
+
+            <pre class="log-console" id="trainingLogConsole">等待训练开始…</pre>
+
+            <div class="result-grid">
+              <div><span class="fact-label">最新模型版本</span><strong id="trainingResultVersionText">--</strong></div>
+              <div><span class="fact-label">最新 checkpoint</span><strong id="trainingResultCheckpointText">--</strong></div>
+              <div><span class="fact-label">设备</span><strong id="trainingResultDeviceText">--</strong></div>
+            </div>
+
+            <!-- 训练完成引导卡片（默认隐藏，训练完成后显示） -->
+            <div class="training-complete-card hidden" id="trainingCompleteCard">
+              <div class="complete-icon">✓</div>
+              <div class="complete-body">
+                <strong class="complete-title" id="trainingCompleteTitle">训练完成</strong>
+                <span class="complete-meta" id="trainingCompleteMeta">--</span>
+              </div>
+              <button class="primary-button" id="jumpToInferenceButton" type="button">立即去推理 →</button>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ③ 推理 Tab -->
+    <div class="tab-panel" data-panel="inference">
+      <div class="inference-layout">
+
+        <!-- 步骤一：选择并加载模型 -->
+        <section class="panel inference-step-panel">
+          <div class="step-header">
+            <span class="step-badge">1</span>
+            <div class="step-copy">
+              <p class="eyebrow">Load Model</p>
+              <h3>选择并加载推理模型</h3>
+            </div>
+            <span class="panel-kicker load-status-chip" id="inferenceLoadStatusChip">未加载</span>
+          </div>
+
+          <div class="inference-load-grid">
+            <label class="field">
+              <span>推理版本</span>
+              <select id="inferenceProfileSelect"></select>
+            </label>
+            <label class="field">
+              <span>Speaker</span>
+              <select id="inferenceSpeakerSelect"></select>
+            </label>
+            <label class="field">
+              <span>设备</span>
+              <select id="inferenceDeviceSelect"></select>
+            </label>
+          </div>
+
+          <div class="inference-load-controls">
+            <label class="load-switch-card" id="inferenceDiffusionCard">
+              <div class="load-switch-copy">
+                <span class="field-section-label">Diffusion</span>
+                <strong>使用扩散增强</strong>
+                <span class="hint-text" id="inferenceDiffusionHintText">只有版本已训练出扩散模型时才可开启；切换后需要重新加载。</span>
+              </div>
+              <input id="inferenceUseDiffusionCheckbox" type="checkbox">
+            </label>
+            <div class="actions">
+              <button class="primary-button" id="loadInferenceModelButton" type="button">加载模型</button>
+              <button class="ghost-button" id="unloadInferenceModelButton" type="button">卸载模型</button>
+              <span class="hint-text" id="inferenceModelHintText">会优先显示模型版本库里的版本，也包含 runtime 兼容模型。</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 步骤二：准备输入音频 -->
+        <section class="panel inference-prep-panel" id="inferencePrepPanel">
+          <div class="step-header">
+            <span class="step-badge">2</span>
+            <div class="step-copy">
+              <p class="eyebrow">Input Prep</p>
+              <h3>准备输入音频</h3>
+            </div>
+            <span class="panel-kicker prep-status-chip" id="preprocessStatusChip">等待文件</span>
+          </div>
+
+          <div class="prep-grid">
+            <div class="prep-upload-stack">
+              <label class="upload-drop" for="inferenceFileInput">
+                <input id="inferenceFileInput" type="file" accept=".wav,.mp3,.mp4,.mkv,.mov,.avi,audio/*,video/*">
+                <span class="upload-icon">♪</span>
+                <span class="upload-title">拖拽上传 WAV / MP3 / MP4 / MKV</span>
+                <span class="upload-subtitle">视频会自动抽取音轨，音频会在需要时转成可推理 WAV。</span>
+              </label>
+
+              <div class="file-strip file-strip-split">
+                <span id="inferenceFileNameText">尚未选择文件</span>
+                <span class="file-strip-meta" id="acceptedMediaText">支持 WAV / MP3 / MP4 / MKV / MOV / AVI</span>
+              </div>
+
+              <div class="prep-option-card">
+                <label class="checkline prep-checkline">
+                  <input id="preprocessAutoCheckbox" type="checkbox">
+                  <span>自动提取人声</span>
+                </label>
+                <p class="hint-text prep-hint-inline">如果音频含有背景音乐，建议开启人声分离。</p>
+
+                <div class="field-section prep-field-section">
+                  <p class="field-section-label">分离引擎</p>
+                  <div class="predictor-cards" id="separatorEngineCards"></div>
+                  <div class="predictor-note" id="separatorEngineNote"></div>
+                </div>
+
+                <div class="actions prep-actions">
+                  <button class="primary-button" id="startPreprocessButton" type="button" disabled>提取人声</button>
+                  <span class="hint-text" id="preprocessHintText">选择文件后，可决定是否先做预处理。</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="prep-monitor-card">
+              <div class="progress-shell">
+                <div class="progress-track">
+                  <div class="progress-bar" id="preprocessProgressBar"></div>
+                </div>
+                <div class="progress-meta">
+                  <span id="preprocessProgressText">0%</span>
+                  <span id="preprocessStageText">等待选择文件</span>
+                </div>
+              </div>
+
+              <pre class="log-console preprocess-console" id="preprocessLogConsole">等待选择文件…</pre>
+              <p class="hint-text preprocess-warning hidden" id="preprocessWarningText"></p>
+            </div>
+          </div>
+
+          <div class="prep-compare-card hidden" id="preprocessCompareCard">
+            <div class="section-head compact">
+              <div>
+                <p class="eyebrow">Compare</p>
+                <h3>提取结果确认</h3>
+              </div>
+              <span class="panel-kicker compare-selection-chip" id="preprocessSelectionChip">未确认</span>
+            </div>
+
+            <div class="compare-grid">
+              <article class="compare-player-card" id="preprocessOriginalCard">
+                <div class="card-topline">
+                  <span class="card-title">原始音频</span>
+                  <span class="compare-player-meta" id="preprocessOriginalMeta">等待结果</span>
+                </div>
+                <audio class="audio-player" id="preprocessOriginalPlayer" controls preload="none"></audio>
+                <button class="ghost-button variant-action" id="useOriginalButton" type="button">使用原始音频</button>
+              </article>
+
+              <article class="compare-player-card" id="preprocessVocalsCard">
+                <div class="card-topline">
+                  <span class="card-title">提取人声</span>
+                  <span class="compare-player-meta" id="preprocessVocalsMeta">推荐：含伴奏时优先试听</span>
+                </div>
+                <audio class="audio-player" id="preprocessVocalsPlayer" controls preload="none"></audio>
+                <button class="ghost-button variant-action" id="useVocalsButton" type="button">使用提取人声（推荐）</button>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <!-- 步骤三：推理参数 & 生成 -->
+        <section class="panel inference-run-panel is-locked" id="inferenceRunPanel">
+          <div class="step-header">
+            <span class="step-badge">3</span>
+            <div class="step-copy">
+              <p class="eyebrow">Inference</p>
+              <h3>推理参数 &amp; 生成</h3>
+            </div>
+            <span class="panel-kicker inference-ready-chip" id="inferenceReadyChip">等待输入</span>
+          </div>
+
+          <div class="inference-main-grid">
+            <!-- 左：参数配置 -->
+            <div class="inference-form">
+              <div class="result-grid prep-summary-grid">
+                <div>
+                  <span class="fact-label">将用于推理</span>
+                  <strong id="selectedInputVariantText">--</strong>
+                </div>
+                <div>
+                  <span class="fact-label">预处理状态</span>
+                  <strong id="selectedInputSourceText">等待准备</strong>
+                </div>
+              </div>
+
+              <!-- F0 Predictor 卡片 -->
+              <div class="field-section">
+                <p class="field-section-label">F0 音调提取算法</p>
+                <div class="predictor-cards" id="inferencePredictorCards"></div>
+                <div class="predictor-note" id="inferencePredictorNote"></div>
+              </div>
+
+              <!-- 推理参数 -->
+              <details class="advanced-params">
+                <summary class="advanced-toggle">高级参数 <span class="toggle-hint">（变调 / 切片 / Noise）</span></summary>
+                <div class="training-form-grid mt-12">
+                  <label class="field">
+                    <span>变调（半音）</span>
+                    <input id="inferenceTranInput" type="number" step="1" value="0">
+                  </label>
+                  <label class="field">
+                    <span>切片阈值 dB</span>
+                    <input id="inferenceSliceInput" type="number" step="1" value="-40">
+                  </label>
+                  <label class="field">
+                    <span>Noise Scale</span>
+                    <input id="inferenceNoiseInput" type="number" step="0.05" value="0.4">
+                  </label>
+                  <label class="field">
+                    <span>Pad Seconds</span>
+                    <input id="inferencePadInput" type="number" step="0.1" value="0.5">
+                  </label>
+                </div>
+              </details>
+
+              <div class="actions">
+                <button class="primary-button large-btn" id="startInferenceButton" type="button">开始推理</button>
+                <span class="hint-text" id="inferenceReadyHintText">步骤 ② 确认完成后，这里会自动解锁。</span>
+              </div>
+            </div>
+
+            <!-- 右：监控 + 结果 -->
+            <div class="inference-monitor">
+              <div class="section-head compact">
+                <div>
+                  <p class="eyebrow">Monitor</p>
+                  <h3>推理进度</h3>
+                </div>
+                <span class="panel-kicker" id="inferenceTaskStatusText">idle</span>
+              </div>
+
+              <div class="progress-shell">
+                <div class="progress-track">
+                  <div class="progress-bar" id="inferenceProgressBar"></div>
+                </div>
+                <div class="progress-meta">
+                  <span id="inferenceProgressText">0%</span>
+                  <span id="inferenceStageText">等待推理开始</span>
+                </div>
+              </div>
+              <pre class="log-console" id="inferenceLogConsole">等待推理开始…</pre>
+              <audio id="inferenceResultPlayer" class="audio-player" controls preload="metadata"></audio>
+              <div class="actions compact-actions">
+                <a class="ghost-button link-button disabled" id="inferenceDownloadLink" href="#" download>下载结果</a>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

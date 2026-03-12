@@ -1,0 +1,33 @@
+app:
+  host: 127.0.0.1
+  port: 8000
+  upload_limit_mb: 200
+  media_upload_limit_mb: 0
+  training_upload_limit_mb: 0
+  data_root: workspace_data
+  allow_cpu_fallback: true
+  minimum_driver_version: "570.65"
+  task_retention_days: 7
+  preprocess_retention_days: 7
+training_defaults:
+  f0_predictor: rmvpe
+  checkpoint_interval_steps: 500
+  checkpoint_keep_last: 5
+  step_count: 2000
+default_profile:
+  checkpoint_path: ""
+  config_path: "configs/config.json"
+  cluster_path: ""
+  diffusion_model_path: ""
+  diffusion_config_path: "configs/diffusion.yaml"
+  speaker: ""
+  device_preference: "auto"
+  tran: 0
+  slice_db: -40
+  slice_min_length_ms: 5000
+  noise_scale: 0.4
+  pad_seconds: 0.5
+  f0_predictor: "rmvpe"
+  output_format: "wav"
+  auto_predict_f0: false
+  cluster_infer_ratio: 0.0

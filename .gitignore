@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.python-version
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local settings and secrets
+.env
+.env.local
+.env.*.local
+
+# Runtime outputs
+jobs/
+workspace_data/
+trained_models/
+smoke_train_runtime/
+
+# Runtime assets not shipped in this repo
+runtime/softvc_clean/ffmpeg/*
+!runtime/softvc_clean/ffmpeg/README.md
+runtime/softvc_clean/logs/
+runtime/softvc_clean/pretrain/*
+!runtime/softvc_clean/pretrain/README.md
+runtime/softvc_clean/pre_trained_model/*
+!runtime/softvc_clean/pre_trained_model/README.md
+runtime/separators/models/*
+!runtime/separators/models/README.md
+runtime/separators/cache/
+runtime/separator_wheels/
+
+# Model checkpoints and large binary artifacts
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.safetensors
+*.onnx
+*.engine
+*.sqlite3
+*.db
+*.whl
+*.tar.gz
+
+# Datasets and media
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.m4a
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.zip
+*.7z
+*.rar
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak
+*.orig
+tmp/
+temp/
+.cache/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.code-workspace
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Internal tooling folders from the portable workspace
+.claude/
