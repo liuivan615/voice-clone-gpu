@@ -9,6 +9,82 @@ datasets, caches, logs, and generated outputs.
 
 ---
 
+## Quick Start
+
+> Full details for each step are in the sections below.
+
+**1. Install the environment**
+
+```powershell
+# Create .venv and install Python dependencies
+powershell -ExecutionPolicy Bypass -File .\tools\setup_env.ps1
+
+# Optional: also install the vocal-separation CLI
+powershell -ExecutionPolicy Bypass -File .\tools\setup_env.ps1 -WithPreprocessTools
+```
+
+Then verify (or replace) the PyTorch build for your GPU — `requirements.txt` leaves
+`torch` / `torchaudio` unpinned so you can install the right CUDA wheel:
+
+```powershell
+# Example: RTX 50 / Blackwell (CUDA 12.8)
+.\.venv\Scripts\pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+```
+
+**2. Prepare model assets**
+
+Place the required files before launching (see [docs/model_setup.md](docs/model_setup.md)):
+
+| Asset | Default location |
+|---|---|
+| Feature extractor (e.g. `checkpoint_best_legacy_500.pt`) | `runtime/softvc_clean/pretrain/` |
+| F0 predictor (`rmvpe.pt` recommended) | `runtime/softvc_clean/pretrain/` |
+| Base generator + discriminator (`G_0.pth`, `D_0.pth`) | `runtime/softvc_clean/pre_trained_model/{preset}/` |
+| Separator models (Demucs / MDX-Net) | `runtime/separators/models/` |
+| `ffmpeg` | System PATH, or set `WAV_FFMPEG_EXE` in `.env` |
+
+**3. Start the app**
+
+```powershell
+.\run.bat
+```
+
+Open `http://127.0.0.1:8000` in your browser. The top-right chip shows GPU / CUDA status.
+
+**4. Dataset tab — prepare training data**
+
+1. Fill in **Speaker name** and **Dataset name**, click **+ 创建数据集**.
+2. Drag-and-drop `.wav` files into the upload zone; tick **上传后立即自动分段** to segment automatically.
+3. Review the candidate segments — disable low-quality clips by toggling their checkboxes.
+4. *(Optional)* Use **提取人声** to run vocal separation on a recording, then choose the vocal or original variant.
+5. Enter a version label (e.g. `v1_clean`) and click **+ 创建数据集版本** to freeze an immutable snapshot.
+
+**5. Training tab — train the model**
+
+1. Select training mode: **新建训练** (from scratch), **继续训练** (resume), or **仅扩散训练**.
+2. Pick the frozen dataset version and enter a **model name**.
+3. Choose a preset:
+
+   | Preset | Encoder | VRAM |
+   |---|---|---|
+   | ⚡ 均衡 (Balanced) | ContentVec 768L12 | ~6 GB |
+   | 🎯 高质量 (High-Quality) | Whisper-PPG | ~12 GB |
+   | 💡 轻量 (Light) | HuBERT-Soft | ~4 GB |
+
+4. Select an F0 predictor (**RMVPE** recommended) and adjust steps / batch size if needed.
+5. Click **开始训练**. A live log and progress bar stream training updates over WebSocket.
+6. When finished, the model is registered in the local library automatically.
+
+**6. Inference tab — convert audio**
+
+1. Select a model version from the library and click **加载模型**.
+2. Upload an audio or video file.
+   - *(Optional)* Enable **自动分离人声**, pick a separator engine, and click **开始预处理**; then choose the original or vocal variant.
+3. Set pitch shift (**Tran**), noise scale, and other parameters as needed.
+4. Click **开始推理**. When done, a player and **下载结果** button appear.
+
+---
+
 ## What This Project Does
 
 - Provides a FastAPI backend plus a browser UI for an end-to-end workflow.
