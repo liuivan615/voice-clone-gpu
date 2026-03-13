@@ -289,3 +289,67 @@ ffmpeg executable. See `.env.example`.
 ## Contributors
 
 Built with [Claude Code](https://claude.ai/claude-code) (Anthropic) and [Codex](https://openai.com/blog/openai-codex) (OpenAI).
+
+---
+
+## 简体中文说明
+
+### 项目简介
+
+这是一个基于 SoftVC 风格语音转换的本地 Web 工作站，用于数据集管理、媒体预处理、模型训练和推理。该仓库是原始便携式工作区 `4wav_gpu_frontend_portable` 的整理版，保留了应用代码和装切后的运行时源码，但不包含 Python 虚拟环境、预训权重、数据集、日志或生成文件。
+
+### 快速开始
+
+1. **安装环境**  
+   运行 `tools/setup_env.ps1` 脚本创建 `.venv` 虚拟环境并安装 Python 依赖。根据你的 GPU/CPU 情况，单独安装适合的 `torch`/`torchaudio` 版本。
+
+2. **准备模型资源**  
+   在启动前将预训特征提取器、F0 预测器、基础生成器/ 判别器检查点以及分离模型放置到指定目录（详见 `docs/model_setup.md`）。系统不会自带这些权重。
+
+3. **启动应用**  
+   执行 `run.bat` 或 `tools/launch_app.ps1`，然后打开浏览器访问 `http://127.0.0.1:8000`。
+
+4. **数据集**  
+   在 **Dataset** 页面中创建数据集名称及版本，上传 `.wav` 文件，可勾选“上传后立即自动分段”进行自动切片；检查和筛选片段后，填写版本号并冻结数据集。
+
+5. **训练**  
+   在 **Training** 页面选择已冻结的数据集版本和模型名称，选择训练预设（均衡、高质量、轻量）以及 F0 预测器，点击“开始训练”开始新训练/继续训练/仅扬散训练。训练完成后模型会记录到本地模型库。
+
+6. **推理**  
+   在 **Inference** 页面加载模型，上传待转换的音频或视频，必要时先进行人声分离，然后设置音高调数、噪声层级等参数并点击“开始推理”，生成的结果可以下载。
+
+### 本仓库包含内容
+
+- FastAPI 后端应用和浏览器前端 UI (`app/`)
+- 被装切的 SoftVC 运行时源码 (`runtime/softvc_clean/`)
+- 安装、启动和测试脚本 (`tools/`)
+- 示例配置文件 (`configs/`, `runtime_settings.yaml` 等)
+
+### 本仓库不包含内容
+
+为了保证仓库轻量和安全，以下内容未包含在内：
+
+- Python 环境 (`envs/`)
+- 训练输出、日志、任务记录 (`jobs/`)
+- 本地工作区数据库及模型库 (`workspace_data/`)
+- 训练模型权重和预训资源
+- 分离模型文件
+- ffmpeg 可执行文件
+- 数据集和生成的媒体文件
+
+请参考 `docs/model_setup.md` 和 `docs/data_setup.md` 准备缺失的资源。
+
+### 环境需求
+
+- **操作系统：** Windows（原便携式环境的目标）
+- **Python：** 3.10 以上
+- **GPU：** 建议使用 NVIDIA GPU
+- **CUDA：** 例如 RTX 50/Blackwell 应使用支持 CUDA 12.8 的 PyTorch 版本
+- **ffmpeg：** 用于音频预处理，可设置在 PATH 或通过 `.env` 中的 `WAV_FFMPEG_EXE` 指定
+
+### 工作流程概述
+
+训练流程：准备并冻结数据集 → 在训练页面选择数据集和预设 → 开始新训练/继续训练/扬散训练。  
+推理流程：加载模型版本 → 上传音频/视频文件（可选预处理人声）→ 设置参数 → 开始推理 → 下载结果。
+
+更多详情参见 `docs/` 文件夹中的文档。
